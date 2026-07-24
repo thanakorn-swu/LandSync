@@ -1,6 +1,7 @@
 <!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>LandSync V2</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"><style>
 html,body{height:100%;margin:0;font-family:Tahoma,Arial,sans-serif;background:#eef3f7}#app{height:100%;display:grid;grid-template-columns:350px 1fr}#sidebar{background:#fff;padding:14px;overflow:auto;border-right:1px solid #ccd5dd;z-index:1000}#map{height:100%;min-height:300px}h2{margin:4px 0}.sub{font-size:12px;color:#667;margin-bottom:12px}input,button,select,textarea{width:100%;box-sizing:border-box;padding:10px;border-radius:8px;font-size:15px}input,select,textarea{border:1px solid #aeb8c2;background:#fff}button{border:0;margin-top:8px;cursor:pointer}#searchBtn{background:#1769aa;color:#fff;font-weight:700}.row{display:grid;grid-template-columns:1fr 1fr;gap:7px}.row button,#locateBtn{background:#e8eef4}#exportShpBtn{background:#0b7a38;color:#fff;font-weight:700}#exportShpBtn:disabled{background:#8aa897}#message{margin-top:12px;padding:9px;background:#f1f4f7;border-radius:7px;line-height:1.45}.result{padding:9px;border:1px solid #d8dee5;border-radius:7px;margin-top:7px;cursor:pointer}.result:hover{background:#eef6ff}.result strong{display:block}.status-error{background:#ffe6e6!important;color:#a40000}.sync-badge{display:inline-block;padding:3px 7px;border-radius:10px;font-size:12px;background:#e7f7ed;color:#0b6b32}.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:5000;align-items:center;justify-content:center;padding:10px}.modal.open{display:flex}.modal-card{background:#fff;border-radius:12px;width:min(720px,100%);max-height:94vh;overflow:auto;padding:16px}.modal-card h3{margin:0 0 4px}.code-line{margin-bottom:12px;color:#555}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.form-group{display:flex;flex-direction:column;gap:5px}.form-group.full{grid-column:1/-1}.form-group label{font-weight:700;font-size:13px}.form-group textarea{min-height:78px;resize:vertical}.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;position:sticky;bottom:-16px;background:#fff;padding:10px 0 2px}.modal-actions button{width:auto;padding:10px 18px}.btn-cancel{background:#e7ebef}.btn-save{background:#1769aa;color:#fff;font-weight:700}.save-status{margin-top:8px;font-size:13px}.save-status.error{color:#b00020}.save-status.ok{color:#08722c}@media(max-width:760px){#app{grid-template-columns:1fr;grid-template-rows:39% 61%}#sidebar{border-right:0;border-bottom:1px solid #ccd5dd;padding:10px}.form-grid{grid-template-columns:1fr}.modal{padding:0;align-items:flex-end}.modal-card{border-radius:14px 14px 0 0;width:100%;max-height:92vh;padding:14px}}
-</style></head><body><div id="app"><aside id="sidebar"><h2>LandSync V2</h2><div class="sub">คลิกแปลงเพื่อแก้ไขและบันทึกให้ทุกคนเห็น</div><input id="searchInput" placeholder="ค้นหา CODE_ท หรือเลขโฉนด"><button id="searchBtn">ค้นหาและซูม</button><div class="row"><button id="allBtn">แปลงทั้งหมด</button><button id="rowBtn">แนวเขตเวนคืน</button></div><button id="locateBtn">ตำแหน่งของฉัน</button><button id="exportShpBtn">ดาวน์โหลด SHP ล่าสุด (UTM 47N)</button><div id="message">กำลังโหลดแผนที่…</div><div id="results"></div></aside><main id="map"></main></div>
+</style><script src="https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.js"></script>
+</head><body><div id="app"><aside id="sidebar"><h2>LandSync V2</h2><div class="sub">คลิกแปลงเพื่อแก้ไขและบันทึกให้ทุกคนเห็น</div><input id="searchInput" placeholder="ค้นหา CODE_ท หรือเลขโฉนด"><button id="searchBtn">ค้นหาและซูม</button><div class="row"><button id="allBtn">แปลงทั้งหมด</button><button id="rowBtn">แนวเขตเวนคืน</button></div><button id="locateBtn">ตำแหน่งของฉัน</button><button id="exportShpBtn">ดาวน์โหลด SHP ล่าสุด (UTM 47N)</button><div id="message">กำลังโหลดแผนที่…</div><div id="results"></div></aside><main id="map"></main></div>
 <div id="editModal" class="modal"><div class="modal-card"><h3>ข้อมูลแปลงที่ดิน</h3><div class="code-line">CODE_ท: <strong id="editCode"></strong> <span id="onlineBadge"></span></div><div class="form-grid">
 <div class="form-group"><label>ระวาง</label><input id="f_map_sheet"></div><div class="form-group"><label>เลขที่ดิน</label><input id="f_land_no"></div><div class="form-group"><label>เลขโฉนด</label><input id="f_deed_no"></div><div class="form-group"><label>หน้าสำรวจ</label><input id="f_survey_no"></div><div class="form-group"><label>ตำบล</label><input id="f_subdistrict"></div><div class="form-group"><label>อำเภอ</label><input id="f_district"></div><div class="form-group full"><label>จังหวัด</label><input id="f_province"></div><div class="form-group"><label>ชื่อ 1</label><input id="f_owner1"></div><div class="form-group"><label>ที่อยู่ 1</label><input id="f_address1"></div><div class="form-group"><label>ชื่อ 2</label><input id="f_owner2"></div><div class="form-group"><label>ที่อยู่ 2</label><input id="f_address2"></div><div class="form-group"><label>ชื่อ 3</label><input id="f_owner3"></div><div class="form-group"><label>ที่อยู่ 3</label><input id="f_address3"></div><div class="form-group"><label>เบอร์โทร</label><input id="f_phone"></div><div class="form-group"><label>สถานะ</label><select id="f_status"><option value="">— ไม่ระบุ —</option><option>ยังไม่ได้ติดต่อ</option><option>ติดต่อแล้ว</option><option>รอเอกสาร</option><option>รอจ่ายเงิน</option><option>เสร็จสิ้น</option></select></div><div class="form-group full"><label>หมายเหตุ</label><textarea id="f_note"></textarea></div></div><div id="saveStatus" class="save-status"></div><div class="modal-actions"><button id="cancelEdit" class="btn-cancel">ยกเลิก</button><button id="saveEdit" class="btn-save">💾 บันทึกให้ทุกคนเห็น</button></div></div></div>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://cdn.jsdelivr.net/npm/proj4@2.11.0/dist/proj4.js"></script><script src="https://unpkg.com/@mapbox/shp-write@0.4.3/shpwrite.js"></script><script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script><script>
@@ -17,55 +18,164 @@ async function load(){if(!configured){msg.innerHTML='พร้อมใช้ง
 const modal=document.getElementById('editModal');document.getElementById('cancelEdit').onclick=()=>modal.classList.remove('open');modal.onclick=e=>{if(e.target===modal)modal.classList.remove('open')};document.getElementById('saveEdit').onclick=async()=>{const st=document.getElementById('saveStatus');if(!configured){st.className='save-status error';st.textContent='ยังไม่ได้ใส่ Supabase key';return;}const p=editing.feature.properties,payload={code_t:clean(p['CODE_ท']),editor_id:browserId};for(const [c,[th,id]] of Object.entries(formMap))payload[c]=document.getElementById(id).value.trim();st.textContent='กำลังบันทึก…';const {data,error}=await db.from(DB_TABLE).upsert(payload,{onConflict:'code_t'}).select().single();if(error){st.className='save-status error';st.textContent=error.message;return;}apply(data);st.className='save-status ok';st.textContent='บันทึกแล้ว ทุกคนเห็นร่วมกัน';setTimeout(()=>modal.classList.remove('open'),600)};if(configured)db.channel('parcel-live').on('postgres_changes',{event:'*',schema:'public',table:DB_TABLE},p=>apply(p.new)).subscribe();load();
 function search(){const q=clean(document.getElementById('searchInput').value).toLowerCase(),out=document.getElementById('results');out.innerHTML='';const hits=[];parcels.eachLayer(l=>{const p=l.feature.properties;if(clean(p['CODE_ท']).toLowerCase().includes(q)||clean(p['เลขโฉนด']).toLowerCase().includes(q))hits.push(l)});msg.textContent=hits.length?'พบ '+hits.length+' แปลง':'ไม่พบข้อมูล';hits.slice(0,100).forEach(l=>{const p=l.feature.properties,d=document.createElement('div');d.className='result';d.innerHTML='<strong>'+esc(p['CODE_ท'])+' — โฉนด '+esc(p['เลขโฉนด']||'-')+'</strong>'+esc([p['ตำบล'],p['อำเภอ'],p['จังหวัด']].filter(clean).join(' '));d.onclick=()=>{map.fitBounds(l.getBounds(),{maxZoom:19});choose(l)};out.appendChild(d)});if(hits.length>1)map.fitBounds(L.featureGroup(hits).getBounds())}
 const UTM47='+proj=utm +zone=47 +datum=WGS84 +units=m +no_defs',WKT='PROJCS["WGS_1984_UTM_Zone_47N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000],PARAMETER["False_Northing",0],PARAMETER["Central_Meridian",99],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0],UNIT["Meter",1]]';function coords(c){return typeof c[0]==='number'?proj4('EPSG:4326',UTM47,c):c.map(coords)}function props(p){return{CODE_T:clean(p['CODE_ท']),MAP_SHEET:clean(p['ระวาง']),LAND_NO:clean(p['เลขที่ดิน']),DEED_NO:clean(p['เลขโฉนด']),SURVEY_NO:clean(p['หน้าสำรวจ']),TAMBON:clean(p['ตำบล']),AMPHOE:clean(p['อำเภอ']),PROVINCE:clean(p['จังหวัด']),NAME1:clean(p['ชื่อ1']),NAME2:clean(p['ชื่อ2']),NAME3:clean(p['ชื่อ3']),ADDR1:clean(p['ที่อยู่1']),ADDR2:clean(p['ที่อยู่2']),ADDR3:clean(p['ที่อยู่3']),PHONE:clean(p['เบอร์โทร']),STATUS:clean(p['สถานะ']),NOTE:clean(p['หมายเหตุ'])}}
-document.getElementById('exportShpBtn').onclick=async function(){
-this.disabled=true;this.textContent='กำลังสร้าง SHP…';
-try{
- if(configured){
-   const {data,error}=await db.from(DB_TABLE).select('*');
-   if(error)throw error;
-   (data||[]).forEach(apply);
+
+let pyodideReadyPromise=null;
+async function getPyodideForShp(){
+ if(!pyodideReadyPromise){
+   pyodideReadyPromise=(async()=>{
+     const py=await loadPyodide();
+     await py.loadPackage('micropip');
+     await py.runPythonAsync(`
+import micropip
+await micropip.install("pyshp")
+`);
+     return py;
+   })();
  }
- const outFeatures=[];
- parcelData.features.forEach(f=>{
-   const projected=coords(f.geometry.coordinates);
-   const attr=props(f.properties);
-   if(f.geometry.type==='Polygon'){
-     outFeatures.push({type:'Feature',geometry:{type:'Polygon',coordinates:projected},properties:attr});
-   }else if(f.geometry.type==='MultiPolygon'){
-     projected.forEach((poly,i)=>{
-       outFeatures.push({
-         type:'Feature',
-         geometry:{type:'Polygon',coordinates:poly},
-         properties:Object.assign({},attr,{PART_NO:i+1})
-       });
-     });
-   }
- });
- const fc={type:'FeatureCollection',features:outFeatures};
- const raw=await Promise.resolve(shpwrite.zip(fc,{
-   folder:'LandSync_SHP',
-   types:{polygon:'LandSync_Parcels'}
- }));
- const zip=await JSZip.loadAsync(raw,typeof raw==='string'?{base64:true}:{});
- let has=false;
- zip.forEach((p,f)=>{
-   if(p.toLowerCase().endsWith('.prj')){
-     zip.file(p,WKT);has=true;
-   }
- });
- if(!has)zip.file('LandSync_SHP/LandSync_Parcels.prj',WKT);
- const blob=await zip.generateAsync({type:'blob'});
- const a=document.createElement('a'),d=new Date(),stamp=d.toISOString().slice(0,16).replace(/[-:T]/g,'');
- a.href=URL.createObjectURL(blob);
- a.download='LandSync_Parcels_'+stamp+'_UTM47N.zip';
- document.body.appendChild(a);a.click();a.remove();
- setTimeout(()=>URL.revokeObjectURL(a.href),5000);
- msg.textContent='สร้าง SHP ล่าสุดแล้ว '+outFeatures.length+' polygon records';
-}catch(e){
- console.error(e);
- alert('สร้าง SHP ไม่สำเร็จ: '+e.message);
-}finally{
- this.disabled=false;this.textContent='ดาวน์โหลด SHP ล่าสุด (UTM 47N)';
+ return pyodideReadyPromise;
 }
+
+document.getElementById('exportShpBtn').onclick=async function(){
+ this.disabled=true;
+ this.textContent='กำลังเตรียมระบบ SHP…';
+ try{
+   if(configured){
+     const {data,error}=await db.from(DB_TABLE).select('*');
+     if(error)throw error;
+     (data||[]).forEach(apply);
+   }
+
+   const exportRows=parcelData.features.map(f=>({
+     geometry:{
+       type:f.geometry.type,
+       coordinates:coords(f.geometry.coordinates)
+     },
+     properties:props(f.properties)
+   }));
+
+   this.textContent='กำลังสร้าง SHP '+exportRows.length+' แปลง…';
+   const py=await getPyodideForShp();
+   py.globals.set("landsync_json", JSON.stringify(exportRows));
+   py.globals.set("landsync_wkt", WKT);
+
+   const zipBytes=await py.runPythonAsync(`
+import json, os, tempfile, zipfile, io, math
+import shapefile
+
+features=json.loads(landsync_json)
+tmp=tempfile.mkdtemp()
+base=os.path.join(tmp,"LandSync_Parcels")
+
+w=shapefile.Writer(base, shapeType=shapefile.POLYGON, encoding="cp874", encodingErrors="replace", autoBalance=True)
+w.field("CODE_T","C",50)
+w.field("MAP_SHEET","C",80)
+w.field("LAND_NO","C",50)
+w.field("DEED_NO","C",50)
+w.field("SURVEY_NO","C",50)
+w.field("TAMBON","C",100)
+w.field("AMPHOE","C",100)
+w.field("PROVINCE","C",100)
+w.field("RAI","N",10,0)
+w.field("NGAN","N",10,0)
+w.field("WA","F",18,3)
+w.field("NAME1","C",254)
+w.field("NAME2","C",254)
+w.field("NAME3","C",254)
+w.field("ADDR1","C",254)
+w.field("ADDR2","C",254)
+w.field("ADDR3","C",254)
+w.field("PHONE","C",80)
+w.field("STATUS","C",100)
+w.field("NOTE","C",254)
+w.field("LANDOFF","C",254)
+
+def signed_area(ring):
+    s=0.0
+    for i in range(len(ring)-1):
+        x1,y1=ring[i]
+        x2,y2=ring[i+1]
+        s += x1*y2-x2*y1
+    return s/2.0
+
+def close_ring(r):
+    rr=[[float(p[0]),float(p[1])] for p in r if len(p)>=2]
+    if rr and rr[0] != rr[-1]:
+        rr.append(rr[0][:])
+    return rr
+
+def shp_parts(geom):
+    parts=[]
+    if geom["type"]=="Polygon":
+        polygons=[geom["coordinates"]]
+    elif geom["type"]=="MultiPolygon":
+        polygons=geom["coordinates"]
+    else:
+        return parts
+    for poly in polygons:
+        for idx,ring in enumerate(poly):
+            rr=close_ring(ring)
+            if len(rr)<4:
+                continue
+            area=signed_area(rr)
+            # ESRI Shapefile: outer rings clockwise, holes counterclockwise
+            if idx==0 and area>0:
+                rr.reverse()
+            elif idx>0 and area<0:
+                rr.reverse()
+            parts.append(rr)
+    return parts
+
+def txt(v,n=254):
+    if v is None: return ""
+    return str(v)[:n]
+
+count=0
+for f in features:
+    parts=shp_parts(f["geometry"])
+    if not parts:
+        continue
+    p=f.get("properties",{})
+    w.poly(parts)
+    w.record(
+        txt(p.get("CODE_T"),50), txt(p.get("MAP_SHEET"),80), txt(p.get("LAND_NO"),50),
+        txt(p.get("DEED_NO"),50), txt(p.get("SURVEY_NO"),50), txt(p.get("TAMBON"),100),
+        txt(p.get("AMPHOE"),100), txt(p.get("PROVINCE"),100),
+        int(float(p.get("RAI") or 0)), int(float(p.get("NGAN") or 0)), float(p.get("WA") or 0),
+        txt(p.get("NAME1")), txt(p.get("NAME2")), txt(p.get("NAME3")),
+        txt(p.get("ADDR1")), txt(p.get("ADDR2")), txt(p.get("ADDR3")),
+        txt(p.get("PHONE"),80), txt(p.get("STATUS"),100), txt(p.get("NOTE")),
+        txt(p.get("LANDOFF"))
+    )
+    count+=1
+w.close()
+
+with open(base+".prj","w",encoding="ascii") as fp:
+    fp.write(landsync_wkt)
+with open(base+".cpg","w",encoding="ascii") as fp:
+    fp.write("874")
+
+bio=io.BytesIO()
+with zipfile.ZipFile(bio,"w",zipfile.ZIP_DEFLATED) as z:
+    for ext in (".shp",".shx",".dbf",".prj",".cpg"):
+        z.write(base+ext, arcname="LandSync_SHP/LandSync_Parcels"+ext)
+    z.writestr("LandSync_SHP/จำนวนแปลง.txt", f"จำนวนระเบียน: {count}\\nEncoding: Windows-874\\nCRS: WGS84 / UTM Zone 47N")
+bio.getvalue()
+`);
+   const bytes=zipBytes.toJs ? zipBytes.toJs() : zipBytes;
+   if(zipBytes.destroy)zipBytes.destroy();
+   const blob=new Blob([bytes],{type:'application/zip'});
+   const a=document.createElement('a'),d=new Date(),stamp=d.toISOString().slice(0,16).replace(/[-:T]/g,'');
+   a.href=URL.createObjectURL(blob);
+   a.download='LandSync_Parcels_'+stamp+'_UTM47N_CP874.zip';
+   document.body.appendChild(a);a.click();a.remove();
+   setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+   msg.textContent='สร้าง SHP ครบ '+exportRows.length+' แปลง — ภาษาไทย Windows-874';
+ }catch(e){
+   console.error(e);
+   alert('สร้าง SHP ไม่สำเร็จ: '+(e.message||e));
+ }finally{
+   this.disabled=false;
+   this.textContent='ดาวน์โหลด SHP ล่าสุด (UTM 47N)';
+ }
 };
 document.getElementById('searchBtn').onclick=search;document.getElementById('searchInput').onkeydown=e=>{if(e.key==='Enter')search()};document.getElementById('allBtn').onclick=()=>map.fitBounds(pb);document.getElementById('rowBtn').onclick=()=>map.fitBounds(rb);document.getElementById('locateBtn').onclick=()=>map.locate({setView:true,maxZoom:18});map.on('locationfound',e=>L.circleMarker(e.latlng,{radius:8}).addTo(map).bindPopup('ตำแหน่งของฉัน').openPopup());setTimeout(()=>map.invalidateSize(),300)})();</script></body></html>
