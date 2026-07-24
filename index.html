@@ -17,5 +17,55 @@ async function load(){if(!configured){msg.innerHTML='พร้อมใช้ง
 const modal=document.getElementById('editModal');document.getElementById('cancelEdit').onclick=()=>modal.classList.remove('open');modal.onclick=e=>{if(e.target===modal)modal.classList.remove('open')};document.getElementById('saveEdit').onclick=async()=>{const st=document.getElementById('saveStatus');if(!configured){st.className='save-status error';st.textContent='ยังไม่ได้ใส่ Supabase key';return;}const p=editing.feature.properties,payload={code_t:clean(p['CODE_ท']),editor_id:browserId};for(const [c,[th,id]] of Object.entries(formMap))payload[c]=document.getElementById(id).value.trim();st.textContent='กำลังบันทึก…';const {data,error}=await db.from(DB_TABLE).upsert(payload,{onConflict:'code_t'}).select().single();if(error){st.className='save-status error';st.textContent=error.message;return;}apply(data);st.className='save-status ok';st.textContent='บันทึกแล้ว ทุกคนเห็นร่วมกัน';setTimeout(()=>modal.classList.remove('open'),600)};if(configured)db.channel('parcel-live').on('postgres_changes',{event:'*',schema:'public',table:DB_TABLE},p=>apply(p.new)).subscribe();load();
 function search(){const q=clean(document.getElementById('searchInput').value).toLowerCase(),out=document.getElementById('results');out.innerHTML='';const hits=[];parcels.eachLayer(l=>{const p=l.feature.properties;if(clean(p['CODE_ท']).toLowerCase().includes(q)||clean(p['เลขโฉนด']).toLowerCase().includes(q))hits.push(l)});msg.textContent=hits.length?'พบ '+hits.length+' แปลง':'ไม่พบข้อมูล';hits.slice(0,100).forEach(l=>{const p=l.feature.properties,d=document.createElement('div');d.className='result';d.innerHTML='<strong>'+esc(p['CODE_ท'])+' — โฉนด '+esc(p['เลขโฉนด']||'-')+'</strong>'+esc([p['ตำบล'],p['อำเภอ'],p['จังหวัด']].filter(clean).join(' '));d.onclick=()=>{map.fitBounds(l.getBounds(),{maxZoom:19});choose(l)};out.appendChild(d)});if(hits.length>1)map.fitBounds(L.featureGroup(hits).getBounds())}
 const UTM47='+proj=utm +zone=47 +datum=WGS84 +units=m +no_defs',WKT='PROJCS["WGS_1984_UTM_Zone_47N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000],PARAMETER["False_Northing",0],PARAMETER["Central_Meridian",99],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0],UNIT["Meter",1]]';function coords(c){return typeof c[0]==='number'?proj4('EPSG:4326',UTM47,c):c.map(coords)}function props(p){return{CODE_T:clean(p['CODE_ท']),MAP_SHEET:clean(p['ระวาง']),LAND_NO:clean(p['เลขที่ดิน']),DEED_NO:clean(p['เลขโฉนด']),SURVEY_NO:clean(p['หน้าสำรวจ']),TAMBON:clean(p['ตำบล']),AMPHOE:clean(p['อำเภอ']),PROVINCE:clean(p['จังหวัด']),NAME1:clean(p['ชื่อ1']),NAME2:clean(p['ชื่อ2']),NAME3:clean(p['ชื่อ3']),ADDR1:clean(p['ที่อยู่1']),ADDR2:clean(p['ที่อยู่2']),ADDR3:clean(p['ที่อยู่3']),PHONE:clean(p['เบอร์โทร']),STATUS:clean(p['สถานะ']),NOTE:clean(p['หมายเหตุ'])}}
-document.getElementById('exportShpBtn').onclick=async function(){this.disabled=true;this.textContent='กำลังสร้าง SHP…';try{if(configured){const {data,error}=await db.from(DB_TABLE).select('*');if(error)throw error;(data||[]).forEach(apply)}const fc={type:'FeatureCollection',features:parcelData.features.map(f=>({type:'Feature',geometry:{type:f.geometry.type,coordinates:coords(f.geometry.coordinates)},properties:props(f.properties)}))},raw=await Promise.resolve(shpwrite.zip(fc,{folder:'LandSync_SHP',types:{polygon:'LandSync_Parcels'}})),zip=await JSZip.loadAsync(raw,typeof raw==='string'?{base64:true}:{});let has=false;zip.forEach((p,f)=>{if(p.toLowerCase().endsWith('.prj')){zip.file(p,WKT);has=true}});if(!has)zip.file('LandSync_SHP/LandSync_Parcels.prj',WKT);const blob=await zip.generateAsync({type:'blob'}),a=document.createElement('a'),d=new Date(),stamp=d.toISOString().slice(0,16).replace(/[-:T]/g,'');a.href=URL.createObjectURL(blob);a.download='LandSync_Parcels_'+stamp+'_UTM47N.zip';a.click();msg.textContent='สร้าง SHP ล่าสุดแล้ว '+fc.features.length+' แปลง'}catch(e){alert('สร้าง SHP ไม่สำเร็จ: '+e.message)}finally{this.disabled=false;this.textContent='ดาวน์โหลด SHP ล่าสุด (UTM 47N)'}};
+document.getElementById('exportShpBtn').onclick=async function(){
+this.disabled=true;this.textContent='กำลังสร้าง SHP…';
+try{
+ if(configured){
+   const {data,error}=await db.from(DB_TABLE).select('*');
+   if(error)throw error;
+   (data||[]).forEach(apply);
+ }
+ const outFeatures=[];
+ parcelData.features.forEach(f=>{
+   const projected=coords(f.geometry.coordinates);
+   const attr=props(f.properties);
+   if(f.geometry.type==='Polygon'){
+     outFeatures.push({type:'Feature',geometry:{type:'Polygon',coordinates:projected},properties:attr});
+   }else if(f.geometry.type==='MultiPolygon'){
+     projected.forEach((poly,i)=>{
+       outFeatures.push({
+         type:'Feature',
+         geometry:{type:'Polygon',coordinates:poly},
+         properties:Object.assign({},attr,{PART_NO:i+1})
+       });
+     });
+   }
+ });
+ const fc={type:'FeatureCollection',features:outFeatures};
+ const raw=await Promise.resolve(shpwrite.zip(fc,{
+   folder:'LandSync_SHP',
+   types:{polygon:'LandSync_Parcels'}
+ }));
+ const zip=await JSZip.loadAsync(raw,typeof raw==='string'?{base64:true}:{});
+ let has=false;
+ zip.forEach((p,f)=>{
+   if(p.toLowerCase().endsWith('.prj')){
+     zip.file(p,WKT);has=true;
+   }
+ });
+ if(!has)zip.file('LandSync_SHP/LandSync_Parcels.prj',WKT);
+ const blob=await zip.generateAsync({type:'blob'});
+ const a=document.createElement('a'),d=new Date(),stamp=d.toISOString().slice(0,16).replace(/[-:T]/g,'');
+ a.href=URL.createObjectURL(blob);
+ a.download='LandSync_Parcels_'+stamp+'_UTM47N.zip';
+ document.body.appendChild(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+ msg.textContent='สร้าง SHP ล่าสุดแล้ว '+outFeatures.length+' polygon records';
+}catch(e){
+ console.error(e);
+ alert('สร้าง SHP ไม่สำเร็จ: '+e.message);
+}finally{
+ this.disabled=false;this.textContent='ดาวน์โหลด SHP ล่าสุด (UTM 47N)';
+}
+};
 document.getElementById('searchBtn').onclick=search;document.getElementById('searchInput').onkeydown=e=>{if(e.key==='Enter')search()};document.getElementById('allBtn').onclick=()=>map.fitBounds(pb);document.getElementById('rowBtn').onclick=()=>map.fitBounds(rb);document.getElementById('locateBtn').onclick=()=>map.locate({setView:true,maxZoom:18});map.on('locationfound',e=>L.circleMarker(e.latlng,{radius:8}).addTo(map).bindPopup('ตำแหน่งของฉัน').openPopup());setTimeout(()=>map.invalidateSize(),300)})();</script></body></html>
